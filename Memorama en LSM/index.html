@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memorama en LSM</title>
+
+    <link rel="icon" type="image/png" href="assets/img/AME.png">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&family=Pacifico&display=swap" rel="stylesheet">
+
+    <style>
+
+        body {
+            font-family: 'Montserrat', sans-serif; 
+            display: flex;
+            justify-content: center; 
+            align-items: flex-start; 
+            background-color: #f0f2f5; 
+            margin: 0;
+            padding: 20px 0; 
+            min-height: 100vh; 
+            width: 100vw;
+        }
+
+        #game-app {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 95vw;
+            width: 100%; 
+        }
+
+        #start-modal-overlay, #results-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8); 
+            display: none; 
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        #start-modal-overlay {
+             background: rgba(0, 0, 0, 0.7);
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-100px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+
+        @keyframes fadeOutUp {
+            from {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-50px) scale(0.9);
+            }
+        }
+
+        #start-modal-overlay.active .modal-content, 
+        #results-modal-overlay.active .modal-content {
+             animation: slideDown 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+        
+        #start-modal-overlay.fade-out .modal-content {
+             animation: fadeOutUp 0.4s ease-out forwards;
+        }
+
+
+        .modal-content {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 20px; 
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            width: 80%;
+            max-width: 400px;
+            opacity: 0; 
+            transform: translateY(-100px); 
+        }
+        
+        .modal-content h2 {
+            font-size: 1.8em;
+            color: #3b82f6;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-weight: 800;
+        }
+        
+        .modal-controls {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .modal-controls label {
+            font-weight: 700;
+            color: #4b5563;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        #modal-level-select {
+            padding: 10px 15px;
+            font-size: 1em;
+            border-radius: 12px; 
+            border: 1px solid #d1d5db;
+            font-family: 'Montserrat', sans-serif;
+            color: #4b5563;
+            background-color: #ffffff;
+            width: 100%;
+            box-sizing: border-box;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%234b5563%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13%205.4L146.2%20202.7%2018.8%2074.8c-5.8-5.8-13.8-9.4-22.4-9.4H17.4c-8.6%200-16.6%203.6-22.4%209.4L146.2%20261l147.2-147.2c5.8-5.8%209.4-13.8%209.4-22.4v-10.4c0-8.6-3.6-16.6-9.4-22.4z%22%2F%3E%3C%2Fsvg%3E');
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 12px;
+        }
+
+        #modal-start-button, #results-restart-button {
+            padding: 12px 25px;
+            font-size: 1.1em;
+            cursor: pointer;
+            background-color: #3b82f6; 
+            color: white;
+            border: none;
+            border-radius: 12px; 
+            font-weight: 700;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease; 
+        }
+        
+        #modal-start-button:hover {
+            background-color: #2563eb;
+            transform: scale(1.03); 
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); 
+        }
+
+        #results-restart-button:hover {
+            background-color: #2563eb;
+            transform: scale(1.03);
+        }
+        
+        .results-details {
+            margin: 20px 0 30px;
+            padding: 15px;
+            background-color: #f3f4f6;
+            border-radius: 12px;
+            text-align: left;
+            font-size: 1.1em;
+            font-weight: 700;
+            color: #4b5563;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .results-details span {
+            color: #3b82f6;
+            font-size: 1.2em;
+            font-weight: 800;
+        }
+        
+        .game-dashboard {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .game-dashboard h1 {
+            font-family: 'Pacifico', cursive; 
+            font-weight: 400; 
+            color: #3b82f6; 
+            font-size: 3em; 
+            margin-bottom: 5px;
+            display: flex; 
+            align-items: center;
+            justify-content: center;
+            gap: 10px; 
+        }
+        
+        .game-dashboard h1 img {
+            display: inline; 
+            height: 80px; 
+            width: auto;
+            vertical-align: middle;
+            margin-left: 10px; 
+            margin-right: -20px; 
+            transform: translateY(5px); 
+        }
+        
+        .game-dashboard h1 span.lsm-text {
+            font-family: 'Pacifico', cursive;
+            font-style: italic;
+            font-size: 1.2em; 
+            color: #2563eb;
+            margin-left: -15px; 
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px; 
+            justify-content: center;
+            align-items: center;
+            margin-top: 5px;
+            font-size: 1em; 
+            font-weight: 700; 
+            width: 100%; 
+            max-width: 900px;
+            padding: 10px 15px; 
+            border: 1px solid #d1d5db; 
+            border-radius: 12px; 
+            background-color: #ffffff; 
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); 
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 5px; 
+            color: #4b5563; 
+        }
+        
+        .icon {
+            font-size: 1.4em; 
+            color: #3b82f6; 
+        }
+
+        #game-board {
+            display: grid;
+            gap: 5px; 
+            width: 95vw; 
+            max-width: 900px; 
+            perspective: 1000px;
+            margin-top: 10px; 
+            flex-grow: 1; 
+        }
+
+        .board-4x4 {
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+        }
+        .board-5x6 {
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+        }
+        .board-6x9 {
+            grid-template-columns: repeat(9, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+        }
+
+        .card {
+            height: 0; 
+            padding-bottom: 100%; 
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s ease-in-out; 
+            cursor: pointer;
+        }
+        
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 12px; 
+            border: 2px solid #60a5fa; 
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); 
+            backface-visibility: hidden; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        #restart-button {
+            padding: 8px 15px;
+            font-size: 1em;
+            cursor: pointer;
+            background-color: #3b82f6; 
+            color: white;
+            border: none;
+            border-radius: 12px; 
+            font-weight: 700;
+            margin-top: 10px;
+            transition: background-color 0.3s ease;
+        }
+
+        #restart-button:hover {
+             background-color: #115eda;
+        }
+
+        #restart-button:disabled {
+            background-color: #9ca3af;
+            cursor: default;
+        }
+
+        #restart-button.hidden {
+            display: none;
+        }
+
+        .front-face {
+            background-color: rgb(255, 255, 255);
+            transform: rotateY(180deg);
+        }
+
+        .back-face {
+            background-color: #ffffff;
+            background-image: url('assets/img/AME.jpg'); 
+            background-size: 80%;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+        
+        .front-face img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 2px;
+        }
+
+        .card.shuffling {
+            transition: transform 0.4s cubic-bezier(0.7, 0, 0.3, 1) !important; 
+        }
+
+        .card.shuffled {
+            transition: transform 2.0s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
+        }
+        
+        .card.disabled {
+            pointer-events: none;
+        }
+
+        .card.is-flipped, .card.is-matched {
+            transform: rotateY(180deg);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-modal-overlay" class="active">
+        <div class="modal-content">
+            <h2>¡Bienvenido al Memorama LSM!</h2>
+            
+            <div class="modal-controls">
+                <label for="modal-level-select">Selecciona la Dificultad:</label>
+                <select id="modal-level-select">
+                    <option value="facil">Fácil (4x4)</option>
+                    <option value="medio" selected>Medio (5x6)</option>
+                    <option value="dificil">Difícil (6x9)</option>
+                </select>
+                <button id="modal-start-button">Comenzar Juego</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="results-modal-overlay">
+        <div class="modal-content">
+            <h2>🎉 ¡Juego Terminado! 🎉</h2>
+            
+            <div class="results-details">
+                <p>Nivel Completado: <span id="final-level">Medio</span></p>
+                <p>Tiempo Total: <span id="final-time">00:00</span></p>
+                <p>Movimientos: <span id="final-moves">0</span></p>
+            </div>
+            
+            <button id="results-restart-button">Jugar de Nuevo / Cambiar Dificultad</button>
+        </div>
+    </div>
+    
+    <div id="game-app">
+
+        <header class="game-dashboard">
+            <h1>
+                Memorama en 
+                <span class="lsm-text">LSM</span>
+                <img id="logo-header" src="assets/img/AME.png" alt="Logo de la Lengua de Señas Mexicana">
+            </h1>
+            
+            <button id="restart-button" class="hidden">Reiniciar Juego</button>
+            
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="icon">🤚</span> 
+                    <span id="moves-count-display">Movimientos: <span id="moves-count">0</span></span>
+                </div>
+                
+                <div class="stat-item">
+                    <span class="icon">⏳</span>
+                    <span id="timer">00:00</span> 
+                </div>
+
+                <div class="stat-item">
+                    <span class="icon">✅</span>
+                    Pares: <span id="matched-count">0 / 15</span>
+                </div>
+            </div>
+        </header>
+
+        <main id="game-board" class="board-grid board-5x6"></main>
+
+    </div>
+
+    <script>
+        const initialCardsData = [
+            { id: 'A', fileName: 'letra-a-v2.jpg', alt: 'Letra A en LSM' },
+            { id: 'B', fileName: 'letra-b-v2.jpg', alt: 'Letra B en LSM' },
+            { id: 'C', fileName: 'letra-c-v2.jpg', alt: 'Letra C en LSM' },
+            { id: 'D', fileName: 'letra-d-v2.jpg', alt: 'Letra D en LSM' },
+            { id: 'E', fileName: 'letra-e-v2.jpg', alt: 'Letra E en LSM' },
+            { id: 'F', fileName: 'letra-f-v2.jpg', alt: 'Letra F en LSM' },
+            { id: 'G', fileName: 'letra-g-v2.jpg', alt: 'Letra G en LSM' },
+            { id: 'H', fileName: 'letra-h-v2.jpg', alt: 'Letra H en LSM' },
+            { id: 'I', fileName: 'letra-i-v2.jpg', alt: 'Letra I en LSM' },
+            { id: 'J', fileName: 'letra-j-v2.jpg', alt: 'Letra J en LSM' },
+            { id: 'K', fileName: 'letra-k-v2.jpg', alt: 'Letra K en LSM' },
+            { id: 'L', fileName: 'letra-l-v2.jpg', alt: 'Letra L en LSM' },
+            { id: 'M', fileName: 'letra-m-v2.jpg', alt: 'Letra M en LSM' },
+            { id: 'N', fileName: 'letra-n-v2.jpg', alt: 'Letra N en LSM' },
+            { id: 'Ñ', fileName: 'letra-ñ-v2.jpg', alt: 'Letra Ñ en LSM' },
+            { id: 'O', fileName: 'letra-o-v2.jpg', alt: 'Letra O en LSM' },
+            { id: 'P', fileName: 'letra-p-v2.jpg', alt: 'Letra P en LSM' },
+            { id: 'Q', fileName: 'letra-q-v2.jpg', alt: 'Letra Q en LSM' },
+            { id: 'R', fileName: 'letra-r-v2.jpg', alt: 'Letra R en LSM' },
+            { id: 'S', fileName: 'letra-s-v2.jpg', alt: 'Letra S en LSM' },
+            { id: 'T', fileName: 'letra-t-v2.jpg', alt: 'Letra T en LSM' },
+            { id: 'U', fileName: 'letra-u-v2.jpg', alt: 'Letra U en LSM' },
+            { id: 'V', fileName: 'letra-v-v2.jpg', alt: 'Letra V en LSM' },
+            { id: 'W', fileName: 'letra-w-v2.jpg', alt: 'Letra W en LSM' },
+            { id: 'X', fileName: 'letra-x-v2.jpg', alt: 'Letra X en LSM' },
+            { id: 'Y', fileName: 'letra-y-v2.jpg', alt: 'Letra Y en LSM' },
+            { id: 'Z', fileName: 'letra-z-v2.jpg', alt: 'Letra Z en LSM' }
+        ];
+        
+        const LEVEL_CONFIG = {
+            "facil": { pairs: 8, rows: 4, cols: 4, gridClass: "board-4x4", displayName: "Fácil" },
+            "medio": { pairs: 15, rows: 5, cols: 6, gridClass: "board-5x6", displayName: "Medio" }, 
+            "dificil": { pairs: 27, rows: 6, cols: 9, gridClass: "board-6x9", displayName: "Difícil" }
+        };
+
+
+        const board = document.getElementById('game-board');
+        const movesCountSpan = document.getElementById('moves-count'); 
+        const matchedCountSpan = document.getElementById('matched-count');
+        
+        const modalOverlay = document.getElementById('start-modal-overlay');
+        const modalStartButton = document.getElementById('modal-start-button');
+        const modalLevelSelect = document.getElementById('modal-level-select');
+        const restartButton = document.getElementById('restart-button');
+        
+        const resultsModalOverlay = document.getElementById('results-modal-overlay');
+        const finalLevelSpan = document.getElementById('final-level');
+        const finalTimeSpan = document.getElementById('final-time');
+        const finalMovesSpan = document.getElementById('final-moves');
+        const resultsRestartButton = document.getElementById('results-restart-button');
+
+        const timerSpan = document.getElementById('timer'); 
+        
+        let gameCards = [];
+        let hasFlippedCard = false;
+        let lockBoard = false;
+        let firstCard = null;
+        let secondCard = null;
+        let moves = 0;
+        let matchedPairs = 0;
+        let TOTAL_PAIRS = 15; 
+        
+        let timerInterval;
+        let totalSeconds = 0;
+        let gameActive = false; 
+        let currentLevel = 'medio'; 
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+        
+        function startTimer() {
+            if (gameActive) return; 
+            gameActive = true;
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        function updateTimer() {
+            totalSeconds++;
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            
+            const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            timerSpan.textContent = formattedTime;
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            gameActive = false;
+        }
+        
+        function animateShuffle() {
+            const cards = document.querySelectorAll('.card');
+            
+            cards.forEach(card => {
+                const x = Math.random() * 100 - 50; 
+                const y = Math.random() * 100 - 50; 
+                const rot = Math.random() * 720 - 360; 
+                
+                card.classList.add('shuffling', 'disabled'); 
+                card.style.transform = `translate(${x}px, ${y}px) rotateZ(${rot}deg)`;
+            });
+
+            setTimeout(() => {
+                cards.forEach(card => {
+                    card.classList.remove('shuffling');
+                    card.classList.add('shuffled'); 
+                    card.style.transform = 'none'; 
+                });
+
+                setTimeout(() => {
+                    cards.forEach(card => {
+                        card.classList.remove('shuffled'); 
+                        card.style.transform = ''; 
+                        card.style.transition = ''; 
+                        card.classList.remove('disabled'); 
+                    });
+                    
+                    startTimer(); 
+                    restartButton.disabled = false;
+                    restartButton.classList.remove('hidden');
+                    
+                }, 2000 + 100); 
+                
+            }, 400); 
+        }
+        
+        
+        function initializeGame() {
+            currentLevel = modalLevelSelect.value; 
+            const config = LEVEL_CONFIG[currentLevel];
+            
+            TOTAL_PAIRS = config.pairs;
+
+            moves = 0;
+            matchedPairs = 0;
+            totalSeconds = 0; 
+            movesCountSpan.textContent = moves;
+            matchedCountSpan.textContent = `${matchedPairs} / ${TOTAL_PAIRS}`;
+            timerSpan.textContent = '00:00'; 
+            stopTimer(); 
+            board.innerHTML = '';
+            resetBoard();
+            
+            board.className = 'board-grid'; 
+            board.classList.add(config.gridClass);
+            
+            restartButton.disabled = true;
+
+            const cardsToUse = initialCardsData.slice(0, TOTAL_PAIRS); 
+            gameCards = [...cardsToUse, ...cardsToUse];
+            gameCards = gameCards.map((card, index) => ({ ...card, uniqueId: index }));
+            shuffle(gameCards);
+
+            gameCards.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.classList.add('card', 'disabled'); 
+                cardElement.setAttribute('data-card-value', card.id);
+                cardElement.setAttribute('data-unique-id', card.uniqueId);
+
+                cardElement.innerHTML = `
+                    <div class="card-face front-face">
+                        <img src="assets/img/${card.fileName}" alt="${card.alt}">
+                    </div>
+                    <div class="card-face back-face"></div>
+                `;
+                
+                cardElement.addEventListener('click', flipCard);
+                board.appendChild(cardElement);
+            });
+            
+            animateShuffle();
+        }
+
+        function flipCard() {
+            if (lockBoard || this.classList.contains('is-flipped')) return; 
+            if (this.classList.contains('disabled')) return;
+
+            this.classList.add('is-flipped');
+
+            if (!hasFlippedCard) {
+                hasFlippedCard = true;
+                firstCard = this;
+                return;
+            }
+
+            secondCard = this;
+            moves++;
+            movesCountSpan.textContent = moves; 
+
+            checkForMatch();
+        }
+
+        function checkForMatch() {
+            const isMatch = firstCard.getAttribute('data-card-value') === secondCard.getAttribute('data-card-value');
+            isMatch ? disableCards() : unflipCards();
+        }
+        
+        function showResults() {
+            const config = LEVEL_CONFIG[currentLevel];
+            
+            finalLevelSpan.textContent = config.displayName;
+            finalTimeSpan.textContent = timerSpan.textContent;
+            finalMovesSpan.textContent = moves;
+            
+            resultsModalOverlay.style.display = 'flex';
+            resultsModalOverlay.classList.add('active');
+        }
+
+
+        function disableCards() {
+            firstCard.classList.add('is-matched');
+            secondCard.classList.add('is-matched');
+            
+            matchedPairs++;
+            matchedCountSpan.textContent = `${matchedPairs} / ${TOTAL_PAIRS}`;
+            
+            if (matchedPairs === TOTAL_PAIRS) {
+                stopTimer(); 
+                setTimeout(() => {
+                    showResults(); 
+                }, 500);
+            }
+
+            resetBoard();
+        }
+
+        function unflipCards() {
+            lockBoard = true;
+
+            setTimeout(() => {
+                firstCard.classList.remove('is-flipped');
+                secondCard.classList.remove('is-flipped');
+                resetBoard();
+            }, 1000);
+        }
+
+        function resetBoard() {
+            [hasFlippedCard, lockBoard] = [false, false];
+            [firstCard, secondCard] = [null, null];
+        }
+
+        function openStartModal() {
+            resultsModalOverlay.style.display = 'none'; 
+            resultsModalOverlay.classList.remove('active'); 
+            
+            modalOverlay.style.display = 'flex';
+            modalOverlay.classList.remove('fade-out'); 
+            modalOverlay.classList.add('active'); 
+            
+            restartButton.classList.add('hidden');
+            stopTimer(); 
+            
+            const config = LEVEL_CONFIG[modalLevelSelect.value];
+            matchedCountSpan.textContent = `0 / ${config.pairs}`;
+        }
+        
+        modalStartButton.addEventListener('click', () => {
+            currentLevel = modalLevelSelect.value; 
+            
+            modalOverlay.classList.add('fade-out'); 
+            
+            modalOverlay.addEventListener('animationend', handleModalFadeOut, { once: true });
+        });
+        
+        function handleModalFadeOut() {
+            modalOverlay.style.display = 'none';
+            modalOverlay.classList.remove('active', 'fade-out'); 
+            
+            const initialConfig = LEVEL_CONFIG[currentLevel];
+            matchedCountSpan.textContent = `0 / ${initialConfig.pairs}`;
+            
+            initializeGame();
+        }
+
+        restartButton.addEventListener('click', openStartModal);
+        
+        resultsRestartButton.addEventListener('click', openStartModal);
+        
+        modalLevelSelect.addEventListener('change', (e) => {
+            const selectedLevel = e.target.value;
+            const config = LEVEL_CONFIG[selectedLevel];
+            matchedCountSpan.textContent = `0 / ${config.pairs}`;
+        });
+
+
+        window.onload = () => {
+             modalOverlay.style.display = 'flex'; 
+             modalOverlay.classList.add('active'); 
+             
+             currentLevel = modalLevelSelect.value;
+             restartButton.classList.add('hidden');
+             const initialConfig = LEVEL_CONFIG[currentLevel];
+             board.classList.add(initialConfig.gridClass);
+             matchedCountSpan.textContent = `0 / ${initialConfig.pairs}`;
+        };
+    </script>
+</body>
+</html>
